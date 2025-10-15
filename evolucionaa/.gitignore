@@ -1,0 +1,11 @@
+# Archivos CSV generados
+*.csv
+
+# Archivos HTML de debug
+*.html
+
+# Python
+__pycache__/
+*.py[cod]
+*.log
+
