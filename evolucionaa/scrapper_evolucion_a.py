@@ -100,32 +100,37 @@ class EvolucionAScraperCompeticion:
         # Buscar la sección de categorías: div class="category_list"
         category_section = soup.find('div', class_='category_list')
         
-        if category_section:
-            # Buscar todos los <li> con id que empiece con "cid_"
-            category_items = category_section.find_all('li', id=lambda x: x and x.startswith('cid_'))
+        if not category_section:
+            return []  # No hay categorías en esta página
             
-            for item in category_items:
-                # Extraer título y enlace del h3 > a
-                h3 = item.find('h3')
-                if h3:
-                    link = h3.find('a')
-                    if link:
-                        category_name = link.get_text(strip=True)
-                        category_url = urljoin(self.base_url, link.get('href'))
-                        
-                        if category_url not in seen_urls:
-                            # Agregar nombre de categoría padre si existe
-                            full_name = f"{parent_category} > {category_name}" if parent_category else category_name
-                            categories.append({
-                                'nombre': full_name,
-                                'nombre_corto': category_name,
-                                'url': category_url,
-                                'id': item.get('id', ''),
-                                'es_subcategoria': bool(parent_category)
-                            })
-                            seen_urls.add(category_url)
-                            prefix = "  Subcategoría:" if parent_category else "Categoría:"
-                            logger.info(f"{prefix} {category_name}")
+        # Buscar todos los <li> con id que empiece con "cid_"
+        category_items = category_section.find_all('li', id=lambda x: x and x.startswith('cid_'))
+        
+        if not category_items:
+            return []  # No hay elementos de categoría
+        
+        for item in category_items:
+            # Extraer título y enlace del h3 > a
+            h3 = item.find('h3')
+            if h3:
+                link = h3.find('a')
+                if link:
+                    category_name = link.get_text(strip=True)
+                    category_url = urljoin(self.base_url, link.get('href'))
+                    
+                    if category_url not in seen_urls:
+                        # Agregar nombre de categoría padre si existe
+                        full_name = f"{parent_category} > {category_name}" if parent_category else category_name
+                        categories.append({
+                            'nombre': full_name,
+                            'nombre_corto': category_name,
+                            'url': category_url,
+                            'id': item.get('id', ''),
+                            'es_subcategoria': bool(parent_category)
+                        })
+                        seen_urls.add(category_url)
+                        prefix = "  Subcategoría:" if parent_category else "Categoría:"
+                        logger.info(f"{prefix} {category_name}")
         
         return categories
     
@@ -284,14 +289,31 @@ class EvolucionAScraperCompeticion:
                     
                     subcat_html = self.get_page_content(subcat['url'])
                     if subcat_html:
+                        # Extraer productos directamente de esta subcategoría
                         items = self.extract_catalog_items(subcat_html)
                         if items:
-                            logger.info(f"  ✓ {len(items)} productos encontrados")
+                            logger.info(f"    ✓ {len(items)} productos en nivel actual")
                             for item in items:
                                 item['categoria'] = subcat['nombre']
                                 all_items.append(item)
-                        else:
-                            logger.info(f"  Sin productos en: {subcat['nombre_corto']}")
+                        
+                        # SIEMPRE buscar sub-subcategorías (tercer nivel)
+                        sub_subcategories = self.extract_categories(subcat_html, parent_category=subcat['nombre'])
+                        if sub_subcategories:
+                            logger.info(f"    → {len(sub_subcategories)} sub-subcategorías encontradas")
+                            for k, sub_subcat in enumerate(sub_subcategories, 1):
+                                logger.info(f"      [{k}/{len(sub_subcategories)}] {sub_subcat['nombre_corto']}")
+                                
+                                sub_subcat_html = self.get_page_content(sub_subcat['url'])
+                                if sub_subcat_html:
+                                    sub_items = self.extract_catalog_items(sub_subcat_html)
+                                    if sub_items:
+                                        logger.info(f"        ✓ {len(sub_items)} productos")
+                                        for item in sub_items:
+                                            item['categoria'] = sub_subcat['nombre']
+                                            all_items.append(item)
+                                
+                                time.sleep(0.3)  # Pausa entre sub-subcategorías
                     
                     time.sleep(0.5)  # Pausa entre subcategorías
             else:
@@ -361,7 +383,7 @@ def main():
     
     scraper = EvolucionAScraperCompeticion()
     
-    # Realizar scraping
+    # Realizar scraping de todas las categorías (8 marcas principales)
     # Cambiar max_categories=N para limitar, o None para todas las categorías
     items = scraper.scrape_catalog(max_categories=None)
     
