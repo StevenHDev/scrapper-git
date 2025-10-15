@@ -1,1 +1,28 @@
 venv-scrapper/
+
+# Archivos CSV generados
+*.csv
+
+# Archivos HTML de debug
+debug_*.html
+categoria_*.html
+venta_*.html
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
