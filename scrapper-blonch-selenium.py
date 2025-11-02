@@ -159,6 +159,7 @@ class BombasBlochSeleniumScraper:
             'precio': '',
             'enlace_detalle': '',
             'descripcion_corta': '',
+            'descripcion_completa': '',
             'categoria': ''
         }
         
@@ -243,7 +244,42 @@ class BombasBlochSeleniumScraper:
             logger.error(f"Error extrayendo datos del elemento: {e}")
             return None
     
-    def scrape_catalog(self, max_categories=None):
+    def extract_detailed_product_info(self, product_url):
+        """Extrae información detallada de la página del producto"""
+        try:
+            logger.info(f"  Obteniendo detalles: {product_url[:80]}")
+            html_content = self.get_page_with_wait(product_url, wait_time=5)
+            
+            if not html_content:
+                return {'descripcion_completa': ''}
+            
+            soup = BeautifulSoup(html_content, 'html.parser')
+            
+            # Buscar descripción con varios selectores
+            desc_selectors = [
+                '.product-description',
+                '.product-content',
+                '[class*="description"]',
+                '#description',
+                '.description',
+                '.entry-content',
+                '.product-details'
+            ]
+            
+            for selector in desc_selectors:
+                desc_elem = soup.select_one(selector)
+                if desc_elem:
+                    description = desc_elem.get_text(strip=True)
+                    if description:
+                        return {'descripcion_completa': description}
+            
+            return {'descripcion_completa': ''}
+            
+        except Exception as e:
+            logger.warning(f"Error extrayendo detalles de {product_url}: {e}")
+            return {'descripcion_completa': ''}
+    
+    def scrape_catalog(self, max_categories=None, get_details=True):
         """Función principal para hacer scraping del catálogo"""
         if not self.init_driver():
             return []
@@ -294,6 +330,13 @@ class BombasBlochSeleniumScraper:
                 
                 for item in items:
                     item['categoria'] = category['nombre']
+                    
+                    # Si se solicita, obtener información detallada
+                    if get_details and item.get('enlace_detalle'):
+                        detailed_info = self.extract_detailed_product_info(item['enlace_detalle'])
+                        item.update(detailed_info)
+                        time.sleep(0.5)  # Pausa entre producto y producto
+                    
                     all_items.append(item)
                 
                 time.sleep(1)  # Pausa entre categorías
@@ -313,7 +356,7 @@ class BombasBlochSeleniumScraper:
             fieldnames = [
                 'titulo', 'codigo', 'sku', 'precio',
                 'imagen_principal', 'url_imagen_principal',
-                'descripcion_corta', 'categoria', 'enlace_detalle'
+                'descripcion_corta', 'descripcion_completa', 'categoria', 'enlace_detalle'
             ]
             writer = csv.DictWriter(csvfile, fieldnames=fieldnames, extrasaction='ignore')
             writer.writeheader()
@@ -333,7 +376,7 @@ def main():
     scraper = BombasBlochSeleniumScraper(headless=True)
     
     # Realizar scraping (limitar categorías para prueba)
-    items = scraper.scrape_catalog(max_categories=10)
+    items = scraper.scrape_catalog(max_categories=10, get_details=True)
     
     if items:
         logger.info("")

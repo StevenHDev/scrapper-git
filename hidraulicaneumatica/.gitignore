@@ -1,0 +1,15 @@
+# Archivos CSV generados
+*.csv
+categorias/
+
+# Archivos HTML de debug
+*.html
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+
+
+
+

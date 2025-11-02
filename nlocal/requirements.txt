@@ -1,0 +1,11 @@
+# Dependencias para el scraper de nlocal.com
+# Instalar con: pip install -r requirements.txt
+
+# Selenium para automatización del navegador
+selenium>=4.15.0
+
+# BeautifulSoup para parsear HTML
+beautifulsoup4>=4.12.0
+
+# WebDriver Manager para gestionar drivers automáticamente (opcional pero recomendado)
+webdriver-manager>=4.0.0
